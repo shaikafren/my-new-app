@@ -1,4 +1,4 @@
-name: CI/CD Pipeline - My New App
+name: CI/CD Pipeline - Notify via SNS
 
 on:
   push:
@@ -10,38 +10,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout repository
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2: Log in to Docker Hub
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 3: Build Docker image
-      - name: Build Docker image
+      - name: Build and Push Docker Image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-new-app:latest .
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/my-notify-app:latest .
+          docker push ${{ secrets.DOCKER_USERNAME }}/my-notify-app:latest
 
-      # Step 4: Push Docker image to Docker Hub
-      - name: Push Docker image
+      - name: Install AWS CLI
         run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-new-app:latest
+          sudo apt update -y
+          sudo apt install -y awscli
 
-      # Step 5: Configure AWS credentials
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      # Step 6: Send SNS notification
-      - name: Send notification to SNS
+      - name: Send SNS Notification
         run: |
           aws sns publish \
             --topic-arn arn:aws:sns:us-east-1:281284881939:deployment-notifications \
-            --message "✅ New Docker image pushed to DockerHub by CI/CD pipeline."
+            --message "✅ Docker image has been built and pushed successfully by GitHub Actions!"
