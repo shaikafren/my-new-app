@@ -1,39 +1,47 @@
-
-name: Docker Build & SNS Notify
+name: CI/CD Pipeline - My New App
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
-  build-and-notify:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout repository
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Log in to DockerHub
-        uses: docker/login-action@v2
+      # Step 2: Log in to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Step 3: Build Docker image
       - name: Build Docker image
-        run: docker build -t my-notify-app .
-
-      - name: Tag & push Docker image
         run: |
-          docker tag my-notify-app ${{ secrets.DOCKER_USERNAME }}/my-notify-app:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/my-notify-app:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/my-new-app:latest .
 
-      - name: Send SNS notification
-        uses: aws-actions/aws-cli@v2
+      # Step 4: Push Docker image to Docker Hub
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/my-new-app:latest
+
+      # Step 5: Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          args: sns publish --topic-arn ${{ secrets.SNS_TOPIC_ARN }} --message "Docker image my-notify-app:latest has been pushed to DockerHub."
+          aws-region: us-east-1
+
+      # Step 6: Send SNS notification
+      - name: Send notification to SNS
+        run: |
+          aws sns publish \
+            --topic-arn arn:aws:sns:us-east-1:281284881939:deployment-notifications \
+            --message "✅ New Docker image pushed to DockerHub by CI/CD pipeline."
